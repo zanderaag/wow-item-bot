@@ -1,4 +1,4 @@
-import io, csv, os, discord
+import io, csv, os, discord, string
 from discord import Embed
 from discord.ext import commands
 from selenium import webdriver
@@ -25,7 +25,9 @@ def formatName(entryId,itemName):
 def return_args(args):
     global fullName
     global fullNames
+    global capitalized_names
     fullNames = []
+    capitalized_names = []
     l_string = ' '.join(args)
     new_string = l_string.split()
     newer_string = '-'.join(new_string)
@@ -45,7 +47,7 @@ def return_args(args):
                 print(formatName(entry,name))
                 fullName = name
                 fullNames += formatName(entry,name)
-                
+                capitalized_names.append(name)
         return fullNames
 
 def make_photo_directory():
@@ -54,14 +56,18 @@ def make_photo_directory():
     if not os.path.isdir('./thumbnails'):
         os.mkdir('thumbnails')
 
+
+
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
 
 @client.command()
 async def item(ctx, *args):
-
+    global message_id_global
     newer_name = return_args(args)
+    print(newer_name)
+    print(capitalized_names)
     #if only one match is found, grab the exact match and display it to the user
     if len(newer_name) == 2:
         try:
@@ -108,14 +114,80 @@ async def item(ctx, *args):
     #if more than one match is found, display x amount of results that contain the search term to the user so they can copypaste in what they want
     elif len(newer_name) > 2:
         new_list = newer_name[0:9:2]
+        id_list = newer_name[1:10:2]
+        print(id_list)
         newish_list = []
+        counter = 0
         for name in new_list:
             newname = name.split("-")
             newname2 = " ".join(newname)
-            newish_list.append(newname2)
-        newish_list.insert(0, "Did you mean one of the following?")
+            newname3 = string.capwords(newname2)
+            newish_list.append(str(counter + 1) + '. ' + newname3)
+            counter += 1
+            #newname to be used to query based on the emoji reaction given(1-5)
+            print(newname3)
+        newish_list.insert(0, "**Did you mean one of the following?**")
         newish_list = '\n'.join(newish_list)
-        # print(len(newish_list))
-        await ctx.send(newish_list)
-                
+        new_msg = await ctx.send(newish_list)
+        emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']
+        new_count = 0
+        while counter != 0:
+            await new_msg.add_reaction(emoji[new_count])
+            counter -= 1
+            new_count += 1
+
+        def check(reaction, user):
+            return user == ctx.message.author and str(reaction.emoji) in emoji
+    try:
+        reaction, user = await client.wait_for('reaction_add', timeout=30, check=check)
+        choice = emoji.index(reaction.emoji)
+        print(choice)
+        selected_reaction_item = [new_list[choice],id_list[choice]]
+        selected_reaction_item_fullname = capitalized_names[choice]
+        print(selected_reaction_item)
+        print(selected_reaction_item_fullname)
+        if os.path.isfile('./tooltips/' + f'{selected_reaction_item[0]}.png'):
+            print("This text appears if the tooltip requested is already cached. Skipping GET request...")
+            with open('./tooltips/' + f'{selected_reaction_item[0]}.png', 'rb') as f:
+                embed = discord.Embed(title=f'{capitalized_names[choice]}', color=0xFFA500) #creates embed
+                item_file = discord.File('./tooltips/' + f'{selected_reaction_item[0]}.png', filename="image.png")
+                tt_file = discord.File('./thumbnails/' + f'{selected_reaction_item[0]}.png', filename="image2.png")
+                #footer_url = str(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}#comments')
+                embed.set_image(url="attachment://image.png")
+                embed.set_thumbnail(url="attachment://image2.png")
+                #embed.set_footer(text=footer_url)
+                await ctx.send(files=[item_file, tt_file], embed=embed)
+        else:
+            chrome_options = Options()
+            chrome_options.add_extension(extension_one)
+            chrome_options.add_extension(extension_two)
+            chromer = webdriver.Chrome(options=chrome_options)
+            chromer.get(f'https://classic.wowhead.com/item={selected_reaction_item[1]}/{selected_reaction_item[0]}')
+            image = chromer.find_element_by_id(f'tt{selected_reaction_item[1]}').screenshot_as_png
+            imageStream = io.BytesIO(image)
+            im = Image.open(imageStream)
+            image2 = chromer.find_element_by_id(f'ic{selected_reaction_item[1]}').screenshot_as_png
+            imageStream2 = io.BytesIO(image2)
+            im2 = Image.open(imageStream2)
+            im.save('./tooltips/' + f'{selected_reaction_item[0]}.png')
+            im2.save('./thumbnails/' + f'{selected_reaction_item[0]}.png')
+            chromer.quit()
+
+            with open('./tooltips/' + f'{selected_reaction_item[0]}.png', 'rb') as f:
+                embed = discord.Embed(title=f'{capitalized_names[choice]}', color=0xFFA500) #creates embed
+                item_file = discord.File('./tooltips/' + f'{selected_reaction_item[0]}.png', filename="image.png")
+                tt_file = discord.File('./thumbnails/' + f'{selected_reaction_item[0]}.png', filename="image2.png")
+                #footer_url = str(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}#comments')
+                embed.set_image(url="attachment://image.png")
+                embed.set_thumbnail(url="attachment://image2.png")
+                #embed.set_footer(text=footer_url)
+                await ctx.send(files=[item_file, tt_file], embed=embed)
+        
+    except:
+        msg_to_delete = await ctx.send("The query has timed out, please try again.")
+        await msg_to_delete.delete(delay=5)
+        await new_msg.delete()
+    
+        
+
 client.run(token)
