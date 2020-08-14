@@ -24,6 +24,8 @@ def formatName(entryId,itemName):
     
 def return_args(args):
     global fullName
+    global fullNames
+    fullNames = []
     l_string = ' '.join(args)
     new_string = l_string.split()
     newer_string = '-'.join(new_string)
@@ -42,7 +44,9 @@ def return_args(args):
             if l_string.lower() in name.lower():
                 print(formatName(entry,name))
                 fullName = name
-                return formatName(entry,name)
+                fullNames += formatName(entry,name)
+                
+        return fullNames
 
 def make_photo_directory():
     if not os.path.isdir('./tooltips'):
@@ -56,47 +60,62 @@ async def on_ready():
 
 @client.command()
 async def item(ctx, *args):
-    newer_name = return_args(args)
-    try:
-        if os.path.isfile('./tooltips/' + f'{newer_name[0]}.png'):
-            print("This text appears if the tooltip requested is already cached. Skipping GET request...")
-            
-            with open('./tooltips/' + f'{newer_name[0]}.png', 'rb') as f:
-                embed = discord.Embed(title=f'{fullName}', color=0xFFA500) #creates embed
-                item_file = discord.File('./tooltips/' + f'{newer_name[0]}.png', filename="image.png")
-                tt_file = discord.File('./thumbnails/' + f'{newer_name[0]}.png', filename="image2.png")
-                #footer_url = str(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}#comments')
-                embed.set_image(url="attachment://image.png")
-                embed.set_thumbnail(url="attachment://image2.png")
-                #embed.set_footer(text=footer_url)
-                await ctx.send(files=[item_file, tt_file], embed=embed)
-        else:
-            chrome_options = Options()
-            chrome_options.add_extension(extension_one)
-            chrome_options.add_extension(extension_two)
-            chromer = webdriver.Chrome(options=chrome_options)
-            chromer.get(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}')
-            image = chromer.find_element_by_id(f'tt{newer_name[1]}').screenshot_as_png
-            imageStream = io.BytesIO(image)
-            im = Image.open(imageStream)
-            image2 = chromer.find_element_by_id(f'ic{newer_name[1]}').screenshot_as_png
-            imageStream2 = io.BytesIO(image2)
-            im2 = Image.open(imageStream2)
-            im.save('./tooltips/' + f'{newer_name[0]}.png')
-            im2.save('./thumbnails/' + f'{newer_name[0]}.png')
-            chromer.quit()
 
-            with open('./tooltips/' + f'{newer_name[0]}.png', 'rb') as f:
-                embed = discord.Embed(title=f'{fullName}', color=0xFFA500) #creates embed
-                item_file = discord.File('./tooltips/' + f'{newer_name[0]}.png', filename="image.png")
-                tt_file = discord.File('./thumbnails/' + f'{newer_name[0]}.png', filename="image2.png")
-                #footer_url = str(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}#comments')
-                embed.set_image(url="attachment://image.png")
-                embed.set_thumbnail(url="attachment://image2.png")
-                #embed.set_footer(text=footer_url)
-                await ctx.send(files=[item_file, tt_file], embed=embed)
-    except Exception as e:
-        await ctx.send("An error occured internally. Please try refining your search query or contact the dev. Coffee required.")
-        print(e)
+    newer_name = return_args(args)
+    #if only one match is found, grab the exact match and display it to the user
+    if len(newer_name) == 2:
+        try:
+            if os.path.isfile('./tooltips/' + f'{newer_name[0]}.png'):
+                print("This text appears if the tooltip requested is already cached. Skipping GET request...")
+                
+                with open('./tooltips/' + f'{newer_name[0]}.png', 'rb') as f:
+                    embed = discord.Embed(title=f'{fullName}', color=0xFFA500) #creates embed
+                    item_file = discord.File('./tooltips/' + f'{newer_name[0]}.png', filename="image.png")
+                    tt_file = discord.File('./thumbnails/' + f'{newer_name[0]}.png', filename="image2.png")
+                    #footer_url = str(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}#comments')
+                    embed.set_image(url="attachment://image.png")
+                    embed.set_thumbnail(url="attachment://image2.png")
+                    #embed.set_footer(text=footer_url)
+                    await ctx.send(files=[item_file, tt_file], embed=embed)
+            else:
+                chrome_options = Options()
+                chrome_options.add_extension(extension_one)
+                chrome_options.add_extension(extension_two)
+                chromer = webdriver.Chrome(options=chrome_options)
+                chromer.get(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}')
+                image = chromer.find_element_by_id(f'tt{newer_name[1]}').screenshot_as_png
+                imageStream = io.BytesIO(image)
+                im = Image.open(imageStream)
+                image2 = chromer.find_element_by_id(f'ic{newer_name[1]}').screenshot_as_png
+                imageStream2 = io.BytesIO(image2)
+                im2 = Image.open(imageStream2)
+                im.save('./tooltips/' + f'{newer_name[0]}.png')
+                im2.save('./thumbnails/' + f'{newer_name[0]}.png')
+                chromer.quit()
+
+                with open('./tooltips/' + f'{newer_name[0]}.png', 'rb') as f:
+                    embed = discord.Embed(title=f'{fullName}', color=0xFFA500) #creates embed
+                    item_file = discord.File('./tooltips/' + f'{newer_name[0]}.png', filename="image.png")
+                    tt_file = discord.File('./thumbnails/' + f'{newer_name[0]}.png', filename="image2.png")
+                    #footer_url = str(f'https://classic.wowhead.com/item={newer_name[1]}/{newer_name[0]}#comments')
+                    embed.set_image(url="attachment://image.png")
+                    embed.set_thumbnail(url="attachment://image2.png")
+                    #embed.set_footer(text=footer_url)
+                    await ctx.send(files=[item_file, tt_file], embed=embed)
+        except Exception as e:
+            await ctx.send("An error occured internally. Please try refining your search query or contact the dev. Coffee required.")
+            print(e)
+    #if more than one match is found, display x amount of results that contain the search term to the user so they can copypaste in what they want
+    elif len(newer_name) > 2:
+        new_list = newer_name[0:9:2]
+        newish_list = []
+        for name in new_list:
+            newname = name.split("-")
+            newname2 = " ".join(newname)
+            newish_list.append(newname2)
+        newish_list.insert(0, "Did you mean one of the following?")
+        newish_list = '\n'.join(newish_list)
+        # print(len(newish_list))
+        await ctx.send(newish_list)
                 
 client.run(token)
